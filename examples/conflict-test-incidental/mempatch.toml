@@ -1,0 +1,47 @@
+# Synthetic incidental-overlap test.
+#
+# This file is NOT a real patch. It exists so engine developers and plugin
+# authors can verify that mempatch's pre-flight tolerance for "incidental"
+# byte overlaps (where one plugin's read range happens to include another's
+# write site, but the two plugins don't touch the same bytes) is working.
+#
+# Setup: drop BOTH this folder AND examples/outfit-swap-in-combat/ into
+# your game's plugins/ folder simultaneously. Expected behavior:
+#
+#   1. Pre-flight resolves both plugins against the pristine DLL. Both
+#      have the SAME 16-byte pattern, but write to DIFFERENT offsets.
+#   2. Pre-flight notes that outfit-swap's write (bytes 13..16 of the
+#      pattern) overlaps this plugin's pattern read range (bytes 0..16),
+#      but classifies it as INCIDENTAL — no conflict log line emitted.
+#   3. outfit-swap-in-combat applies first; bytes 13..15 become 45 31 F6.
+#   4. This plugin runs next. Its pre-flight resolution recorded the
+#      `patchAddr` as the start of the pattern; the engine does NOT
+#      re-scan, so the fact that bytes 13..15 changed is irrelevant.
+#   5. This plugin's `original` check passes (byte at offset 0 wasn't
+#      touched), and its no-op write at offset 0 completes successfully.
+#   6. Both plugins are reported "applied successfully" in the log.
+#
+# This is the "many plugins coexist peacefully" case. If pre-flight ever
+# starts complaining about this configuration, that's a regression.
+#
+# Safe to drop in a real game folder.
+
+[[patch]]
+name        = "conflict_test_incidental"
+description = "Synthetic incidental-overlap test; should silently coexist with outfit-swap. See README."
+priority    = 200
+module      = "WHGame.dll"
+
+# Same 16-byte pattern as outfit-swap-in-combat. Crucially, our offset is 0
+# (write to the very first byte of the pattern), NOT 13 (which is where
+# outfit-swap writes). So our write region doesn't overlap outfit-swap's,
+# but our pattern READ region does include outfit-swap's write site.
+#
+# Under the OLD pre-flight (any read/write overlap = conflict) this would
+# be flagged. Under the NEW pre-flight (only write-on-original or
+# write-on-write count) it should be silent.
+pattern     = "48 81 C1 60 0B 00 00 48 8B 01 FF 50 08 44 8A F0"
+offset      = 0
+original    = "48"                # the first byte of the pattern
+replacement = "48"                # no-op write (same byte back)
+idempotent  = false

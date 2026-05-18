@@ -1,0 +1,33 @@
+# Synthetic write-on-original conflict test.
+#
+# This file is NOT a real patch. It exists so engine developers and plugin
+# authors can see the write-on-original conflict diagnostic in action.
+#
+# Setup: drop BOTH this folder AND examples/outfit-swap-in-combat/ into
+# your game's plugins/ folder simultaneously. Expected behavior:
+#
+#   1. Pre-flight detects that outfit-swap's write at offset 13 overlaps
+#      this plugin's `original` field (same site, same 3 bytes). Logs a
+#      plain-English [WARN].
+#   2. outfit-swap-in-combat applies first (lower priority).
+#   3. This plugin runs second. Its `original` field expects `44 8A F0`,
+#      but the bytes at that site are now `45 31 F6`. Verify fails, this
+#      patch aborts cleanly. The abort log includes the conflict context
+#      naming outfit-swap-in-combat as the upstream culprit.
+#
+# Safe to drop in a real game folder: this synthetic patch always aborts.
+# Removing the folder is a clean no-op.
+
+[[patch]]
+name        = "conflict_test_on_original"
+description = "Synthetic write-on-original test; aborts cleanly. See README."
+priority    = 200                 # later than outfit-swap (priority 100)
+module      = "WHGame.dll"
+
+# Same pattern + offset as outfit-swap-in-combat. After outfit-swap writes
+# `45 31 F6` here, this plugin's `original = "44 8A F0"` check will fail.
+pattern     = "48 81 C1 60 0B 00 00 48 8B 01 FF 50 08 44 8A F0"
+offset      = 13
+original    = "44 8A F0"
+replacement = "44 8A F0"          # no-op (would write same bytes back)
+idempotent  = false               # don't fall through to idempotent skip

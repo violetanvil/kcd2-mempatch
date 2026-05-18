@@ -1,0 +1,150 @@
+# =============================================================================
+# kcd2-mempatch — fully-commented template
+# =============================================================================
+#
+# This file demonstrates every field the engine understands, including the
+# optional Tier-2 (context) and Tier-3 (anchor) locators. It uses patterns
+# that intentionally DO NOT MATCH anything in WHGame.dll, so if you copy this
+# file unchanged into your game's plugins/ folder the engine will simply log
+# "pattern not found (0 matches)" and apply nothing. Safe to drop and inspect.
+#
+# Copy this folder, rename it, and edit the [[patch]] block(s) below.
+#
+# Read alongside:
+#   docs/config-schema.md       — formal field reference
+#   docs/writing-safe-patches.md — methodology (how to pick a good pattern,
+#                                  when to add a context, when to use an anchor)
+# =============================================================================
+
+
+# Optional top-level options. If multiple plugin folders ship a [mempatch]
+# section, the first non-default value the engine sees wins.
+[mempatch]
+# If true, the engine runs every safety check and logs what it WOULD do but
+# never writes any bytes. Useful for verifying a new patch against a new game
+# build before committing to it.
+dry_run = false
+
+
+# =============================================================================
+# Patch entries — declare as many [[patch]] blocks as you want in this file.
+# Entries from all plugin folders are merged and sorted by (priority, name).
+# =============================================================================
+
+[[patch]]
+
+# -------- Identification --------
+
+# Required. Used as a log tag and a stable sort key. Lowercase + underscore is
+# the convention; must be unique across all loaded patches.
+name = "example_template"
+
+# Optional. Free-form notes. Not used by the engine.
+description = """
+This is a template entry that does nothing. The pattern below is filled with
+0xCC bytes (INT3 instructions) that should not appear in this exact sequence
+inside WHGame.dll's executable sections. Replace with your real AOB.
+"""
+
+# Optional. Integer, default 100. Lower numbers apply first. Mostly matters
+# for multi-plugin conflict resolution: when two plugins write to the same
+# bytes, the one with lower priority writes first and the one with higher
+# priority overwrites (and wins). See docs/writing-safe-patches.md for the
+# full conflict semantics. Usually you can leave this at the default.
+priority = 100
+
+
+# -------- Target --------
+
+# Optional. The module name as it appears in the loaded process. Default
+# "WHGame.dll". You probably won't change this.
+module = "WHGame.dll"
+
+
+# -------- Tier 1: AOB pattern + verify (REQUIRED) --------
+#
+# The minimum locator. Every patch must declare these four fields.
+
+# Hex bytes separated by spaces. Use `??` for wildcard nibbles (matches any
+# byte in that position). Must produce EXACTLY ONE match in the module's
+# executable sections — the engine aborts if 0 or 2+ matches. Aim for at
+# least ~12 bytes; shorter patterns are rarely unique.
+pattern = "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC"
+
+# Byte offset from the start of the pattern to the first byte being written.
+# Example: if you want to write at the very start of the matched location,
+# use 0. If you want to write at the 13th byte, use 13.
+offset = 0
+
+# The bytes you expect to find at (pattern_match + offset) RIGHT NOW. The
+# engine reads these bytes before writing and aborts if they don't match.
+# This protects against the case where the surrounding pattern matched but
+# the actual instruction at the patch site has been changed (by a game
+# update, by another mod, etc.).
+original = "CC CC CC"
+
+# The bytes you want to write. Must be the SAME LENGTH as `original`.
+replacement = "90 90 90"
+
+# Optional. Default true. If true, when the bytes at the patch site already
+# equal `replacement`, the engine logs "patch already applied; skipping"
+# instead of erroring. Needed for relaunches without restarting Steam (the
+# previous launch's patch is still in the live DLL).
+idempotent = true
+
+
+# -------- Tier 2: context pattern (OPTIONAL, recommended) --------
+#
+# A longer pattern that must (a) match exactly once in the module, AND
+# (b) fully contain the Tier-1 `pattern` match. Two independent uniqueness
+# constraints — a coincidental match of the short pattern elsewhere in the
+# module cannot satisfy this.
+#
+# Use this when your Tier-1 pattern is shorter than ~16 bytes, when it
+# matches a common CryEngine idiom, or just to bulletproof an important
+# patch.
+
+context = "DD DD DD DD CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC EE EE EE EE"
+
+
+# -------- Tier 3: anchor (OPTIONAL, strongest) --------
+#
+# Declare AT MOST ONE of the three anchor_* fields. The engine resolves the
+# anchor to a function in the module and refuses to write unless the patch
+# address falls inside that function (and within `max_anchor_distance` of
+# the anchor).
+
+# Option A: a unique string literal in WHGame.dll's .rdata section. The
+# engine finds the string (must be unique), finds the single LEA xref to
+# it in .text (must also be unique), and resolves the enclosing function
+# via the .pdata exception-record table. Patch must be in that function.
+#
+# Uncomment to use. Example value would be a string actually present in the
+# game — don't leave this set to a made-up string in production.
+#
+# anchor_string = "some_unique_localization_key_or_log_message"
+
+# Option B: an exported function name. KCD2 has very few of these, so
+# you're unlikely to use it; left here for completeness.
+#
+# anchor_function_by_export = "SomeExportedSymbol"
+
+# Option C: a CryEngine internal symbol resolved via the gEnv chain (not
+# yet implemented — declaring this aborts the patch with a clear message).
+#
+# anchor_symbol = "pScriptSystem"
+
+# Maximum distance in bytes from the resolved anchor to the patch address.
+# Default 4096. Tune down if you're confident the patch site is very close
+# to the anchor; tune up if not. Ignored if no anchor is declared.
+max_anchor_distance = 4096
+
+
+# =============================================================================
+# Add more [[patch]] entries below if this plugin folder ships several
+# patches. Each is independent — one failing doesn't abort the others.
+# =============================================================================
+
+# [[patch]]
+# name = "another_patch"
+# ...

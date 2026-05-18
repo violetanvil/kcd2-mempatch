@@ -1,0 +1,36 @@
+# Normalize line endings — let git decide for text, force LF for shell scripts,
+# never touch binary or vendored sources that ship with their own endings.
+* text=auto eol=lf
+
+# Force CRLF on Windows-specific tooling
+*.ps1     text eol=crlf
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+*.sln     text eol=crlf
+*.vcxproj text eol=crlf
+
+# Shell scripts must be LF (executed by MinGW / Linux toolchains)
+*.sh text eol=lf
+
+# C/C++ source — LF in repo, autocrlf on checkout per user setting
+*.c   text eol=lf
+*.h   text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+
+# Docs / config
+*.md      text eol=lf
+*.toml    text eol=lf
+*.txt     text eol=lf
+LICENSE   text eol=lf
+
+# Binary — never touch
+*.dll binary
+*.asi binary
+*.exe binary
+*.pdb binary
+*.lib binary
+*.obj binary
+*.png binary
+*.jpg binary
+*.zip binary
